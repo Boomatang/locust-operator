@@ -1,37 +1,59 @@
 import kopf
 import logging
 import kubernetes
+from .models import Spec
+import os
+import yaml
 
 
 @kopf.on.create('locusts')
 def create_fn(spec, name, namespace, **kwargs):
 
-    replicas = spec.get('replicas')
-    if not replicas:
-        raise kopf.PermanentError(f"Replicas must be set. Got {replicas!r}")
-    body = kubernetes.client.V1Deployment()
-    body.metadata = kubernetes.client.V1ObjectMeta(name=name)
-    body.spec = kubernetes.client.V1DeploymentSpec(
-        replicas=replicas,
-        selector=kubernetes.client.V1LabelSelector(match_labels={'app': 'echostore'}),
-        template=kubernetes.client.V1PodTemplateSpec(
-            metadata=kubernetes.client.V1ObjectMeta(
-                name=name,
-                labels=kubernetes.client.V1ObjectMeta({'app/echostore'}),
-            ),
-            spec=kubernetes.client.V1PodSpec(
-                containers=[
-                    kubernetes.client.V1Container(
-                        name=name,
-                        image='quay.io/3scale/authorino:echo-api',
+    data = Spec(**spec)
 
-                    )
-                ]
-            )
-        )
+    controller_cmd = ["locust", "--master", "--locustfile", data.locustfile]
+    if data.controller.ui is False:
+        controller_cmd.append("--headless")
+
+    worker_cmd = ["locust",
+                  "--worker",
+                  "--locustfile", data.locustfile,
+                  "--master-host", f"{name}-controller.{namespace}.svc.cluster.local",
+                  "--master-port", 80,
+                  ]
+
+    path = os.path.join(os.path.dirname(__file__), "templates", "deployment.yaml")
+    tmpl = open(path, 'rt').read()
+    controller = tmpl.format(
+        name=f"{name}-controller",
+        image=data.image,
+        label=name,
+        replicas=1,
+        command=controller_cmd,
+    )
+    worker = tmpl.format(
+        name=f"{name}-worker",
+        image=data.image,
+        label=name,
+        replicas=data.worker.replicas,
+        command=worker_cmd,
     )
 
-    api = kubernetes.client.AppsV1Api()
-    obj = api.create_namespaced_deployment(namespace, body)
+    path = os.path.join(os.path.dirname(__file__), "templates", "service.yaml")
+    tmpl = open(path, 'rt').read()
+    controller_service = tmpl.format()  # TODO this is the next set up to do.
 
-    logging.info(f"deployment created: {obj}")
+    api = kubernetes.client.AppsV1Api()
+    core_api = kubernetes.client.CoreV1Api()
+
+    data = yaml.safe_load(controller)
+    obj = api.create_namespaced_deployment(namespace, data)
+    logging.info(f"controller deployment created: {obj}")
+
+    data = yaml.safe_load(controller_service)
+    obj = core_api.create_namespaced_service(namespace, data)
+    logging.info(f"controller service created: {obj}")
+
+    data = yaml.safe_load(worker)
+    obj = api.create_namespaced_deployment(namespace, data)
+    logging.info(f"worker deployment created: {obj}")
