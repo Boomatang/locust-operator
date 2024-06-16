@@ -1,0 +1,6 @@
+apiVersion: boomatang.dev/v1
+kind: Locust
+metadata:
+  name: sample-locust
+spec:
+  replicas: 1

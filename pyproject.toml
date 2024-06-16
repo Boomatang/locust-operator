@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "locust-operator"
+version = "0.1.0"
+description = ""
+authors = ["Jim Fitzpatrick <jfitzpat@redhat.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+kopf = "^1.37.2"
+kubernetes = "^29.0.0"
+
+
+[tool.poetry.group.dev.dependencies]
+nox = "^2024.4.15"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
