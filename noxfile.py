@@ -2,8 +2,9 @@ import nox
 
 @nox.session
 def setup(session):
-    session.run('kind', 'create', 'cluster', '--name', 'locust-dev', external=True)
+    session.run('kind', 'create', 'cluster', '--name', 'locust-dev', '--config', 'kind-config.yaml', external=True)
     session.run('kubectl', 'apply', '-f', './manifests/locust.yaml', external=True)
+    session.run('kubectl', 'apply', '-f', './samples/echoserver.yaml', external=True)
 
 @nox.session
 def teardown(session):

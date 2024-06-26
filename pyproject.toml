@@ -14,6 +14,7 @@ pydantic = "^2.7.4"
 
 [tool.poetry.group.dev.dependencies]
 nox = "^2024.4.15"
+locust = "^2.29.1"
 
 [build-system]
 requires = ["poetry-core"]

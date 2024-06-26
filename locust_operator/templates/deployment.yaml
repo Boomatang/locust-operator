@@ -13,11 +13,17 @@ spec:
     metadata:
       labels:
         app: {label}
+        controller: locust-operator
     spec:
       containers:
       - name: {name}
         image: {image}
-        command: {command}
+        imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 80
+        - containerPort: 8089
+          name: ui
+          protocol: TCP
+        - containerPort: 5557
+          name: back-channel
+          protocol: TCP
 
