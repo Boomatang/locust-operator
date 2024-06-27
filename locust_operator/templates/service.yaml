@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {name}
   labels:
-    controller: locust-operator
+    controller: {controller}
 spec:
   selector:
     app: {label}

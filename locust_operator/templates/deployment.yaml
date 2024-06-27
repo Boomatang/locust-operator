@@ -4,6 +4,7 @@ metadata:
   name: {name}
   labels:
     app: {label}
+    controller: {controller}
 spec:
   replicas: {replicas}
   selector:

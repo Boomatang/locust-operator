@@ -13,19 +13,19 @@ spec:
       wait_for_workers: false
   worker:
     replicas: 2
----
-apiVersion: boomatang.dev/v1
-kind: Locust
-metadata:
-  name: testing-locust-b
-  namespace: default
-spec:
-  image: "localhost/locust-demo:latest"
-  locustfile: "locustfile.py"
-  controller:
-    ui: true
-    autostart:
-      start: false
-      wait_for_workers: false
-  worker:
-    replicas: 2
+#---
+#apiVersion: boomatang.dev/v1
+#kind: Locust
+#metadata:
+#  name: testing-locust-b
+#  namespace: default
+#spec:
+#  image: "localhost/locust-demo:latest"
+#  locustfile: "locustfile.py"
+#  controller:
+#    ui: true
+#    autostart:
+#      start: false
+#      wait_for_workers: false
+#  worker:
+#    replicas: 2

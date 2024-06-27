@@ -36,3 +36,13 @@ class Spec(BaseModel):
 
 class LocustCrd(Crd):
     spec: Spec
+
+
+class OwnerReference(BaseModel):
+    apiVersion: str
+    kind: str
+    name: str
+
+
+class OwnerReferences(BaseModel):
+    ownerReferences: list[OwnerReference]
