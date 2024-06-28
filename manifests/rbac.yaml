@@ -1,0 +1,107 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: default
+  name: locust-account
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: locust-role-cluster
+rules:
+
+  # Framework: knowing which other operators are running (i.e. peering).
+  - apiGroups: [kopf.dev]
+    resources: [clusterkopfpeerings]
+    verbs: [list, watch, patch, get]
+
+  # Framework: runtime observation of namespaces & CRDs (addition/deletion).
+  - apiGroups: [apiextensions.k8s.io]
+    resources: [customresourcedefinitions]
+    verbs: [list, watch]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [list, watch]
+
+  # Framework: admission webhook configuration management.
+  - apiGroups: [admissionregistration.k8s.io/v1, admissionregistration.k8s.io/v1beta1]
+    resources: [validatingwebhookconfigurations, mutatingwebhookconfigurations]
+    verbs: [create, patch]
+
+  # Application: read-only access for watching cluster-wide.
+  - apiGroups: [boomatang.dev]
+    resources: [locusts]
+    verbs: [list, watch]
+  - apiGroups: ["apps"]
+    resources: [deployments]
+    verbs: [create, list, watch, patch]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [create, list, watch, patch]
+  - apiGroups: ["apps"]
+    resources: [deployments/status]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: locust-role-namespaced
+rules:
+
+  # Framework: knowing which other operators are running (i.e. peering).
+  - apiGroups: [kopf.dev]
+    resources: [kopfpeerings]
+    verbs: [list, watch, patch, get]
+
+  # Framework: posting the events about the handlers progress/errors.
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create]
+
+  # Application: watching & handling for the custom resource we declare.
+  - apiGroups: [boomatang.dev]
+    resources: [locusts]
+    verbs: [list, watch, patch]
+
+  # Application: other resources it produces and manipulates.
+  # Here, we create Jobs+PVCs+Pods, but we do not patch/update/delete them ever.
+  - apiGroups: [batch, extensions]
+    resources: [jobs]
+    verbs: [create]
+  - apiGroups: ["apps"]
+    resources: [deployments]
+    verbs: [create, list, watch, patch]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [create, list, watch, patch]
+  - apiGroups: ["apps"]
+    resources: [deployments/status]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: locust-rolebinding-cluster
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: locust-role-cluster
+subjects:
+  - kind: ServiceAccount
+    name: locust-account
+    namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: default
+  name: locust-rolebinding-namespaced
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: locust-role-namespaced
+subjects:
+  - kind: ServiceAccount
+    name: locust-account

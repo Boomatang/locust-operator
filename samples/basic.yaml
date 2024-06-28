@@ -8,9 +8,9 @@ spec:
   locustfile: "locustfile.py"
   controller:
     ui: true
-    autostart:
-      start: false
-      wait_for_workers: false
+#    autostart:
+#      start: false
+#      wait_for_workers: false
   worker:
     replicas: 2
 #---

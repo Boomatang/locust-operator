@@ -10,11 +10,14 @@ python = "^3.12"
 kopf = "^1.37.2"
 kubernetes = "^29.0.0"
 pydantic = "^2.7.4"
-
+requests = "^2.32.3"
 
 [tool.poetry.group.dev.dependencies]
 nox = "^2024.4.15"
 locust = "^2.29.1"
+
+[tool.poetry.scripts]
+locust-controller = "locust_operator.__main__:run"
 
 [build-system]
 requires = ["poetry-core"]

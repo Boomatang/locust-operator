@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust-operator
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      application: locust-operator
+  template:
+    metadata:
+      labels:
+        application: locust-operator
+    spec:
+      serviceAccountName: locust-account
+      containers:
+      - name: the-only-one
+        image: localhost/locust-operator:latest
+        imagePullPolicy: IfNotPresent
+        command:
+          - locust-controller

@@ -4,7 +4,7 @@ from typing import Optional
 
 class Metadata(BaseModel):
     name: str
-    namespace: Optional[str]
+    namespace: Optional[str] = None
 
 
 class Crd(BaseModel):
@@ -20,7 +20,7 @@ class AutoStart(BaseModel):
 
 class Controller(BaseModel):
     ui: bool
-    autostart: Optional[AutoStart]
+    autostart: Optional[AutoStart] = None
 
 
 class Worker(BaseModel):
@@ -36,13 +36,3 @@ class Spec(BaseModel):
 
 class LocustCrd(Crd):
     spec: Spec
-
-
-class OwnerReference(BaseModel):
-    apiVersion: str
-    kind: str
-    name: str
-
-
-class OwnerReferences(BaseModel):
-    ownerReferences: list[OwnerReference]
