@@ -6,11 +6,11 @@ metadata:
 spec:
   image: "localhost/locust-demo:latest"
   locustfile: "locustfile.py"
-  controller:
-    ui: true
-#    autostart:
-#      start: false
-#      wait_for_workers: false
+  host: "http://echoserver.default.svc.cluster.local"
+#  autostart:
+#    headless: true
+#    start: true
+#    wait_for_workers: false
   worker:
     replicas: 2
 #---

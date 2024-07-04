@@ -15,13 +15,9 @@ class Crd(BaseModel):
 
 
 class AutoStart(BaseModel):
+    headless: Optional[bool] = False
     start: bool
     wait_for_workers: bool
-
-
-class Controller(BaseModel):
-    ui: bool
-    autostart: Optional[AutoStart] = None
 
 
 class Worker(BaseModel):
@@ -31,8 +27,9 @@ class Worker(BaseModel):
 class Spec(BaseModel):
     image: str
     locustfile: str
-    controller: Controller
+    host: Optional[str]
     worker: Worker
+    autostart: Optional[AutoStart] = None
 
 
 class LocustCrd(Crd):

@@ -21,6 +21,39 @@ def setup(session):
 
 
 @nox.session
+def demo_locust(session: nox.Session):
+    session.run(
+        "podman",
+        "build",
+        "locust_sample_image",
+        "-t",
+        "localhost/locust-demo:latest",
+        external=True,
+    )
+    tar = Path("locust_sample_image/locust-demo.tar")
+    if tar.exists():
+        os.remove(tar)
+    session.run(
+        "podman",
+        "save",
+        "-o",
+        "locust_sample_image/locust-demo.tar",
+        "localhost/locust-demo:latest",
+        external=True,
+    )
+    session.run(
+        "kind",
+        "load",
+        "image-archive",
+        "locust_sample_image/locust-demo.tar",
+        "localhost/locust-demo:latest",
+        "--name",
+        "locust-dev",
+        external=True,
+    )
+
+
+@nox.session
 def deploy(session: nox.Session):
     session.run(
         "podman", "build", ".", "-t", "localhost/locust-operator:latest", external=True

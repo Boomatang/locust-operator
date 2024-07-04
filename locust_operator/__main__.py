@@ -1,152 +1,54 @@
-import logging
 import os
-import sys
 
 import kopf
 import kubernetes
 import requests
-import yaml
 
+from locust_operator import controller, service, worker
+from locust_operator.logs import get_logger
 from locust_operator.models import Spec
 
-log = logging.getLogger("locust_operator")
-logging.basicConfig(level=logging.DEBUG, handlers=[logging.StreamHandler(sys.stdout)])
+log = get_logger()
 
 
 @kopf.on.create("locusts")
-def create_fn(spec, name, namespace, **kwargs):
+def create_fn(spec, name, namespace, **_):
     spec_data = Spec(**spec)
 
-    controller_cmd = ["locust", "--master", "--locustfile", spec_data.locustfile]
-    if spec_data.controller.ui is False:
-        controller_cmd.append("--headless")
-
-    worker_cmd = [
-        "locust",
-        "--worker",
-        "--locustfile",
-        spec_data.locustfile,
-        "--master-host",
-        f"{name}-controller-service.{namespace}.svc.cluster.local",
-        "--master-port",
-        "5557",
-    ]
-
-    path = os.path.join(os.path.dirname(__file__), "templates", "deployment.yaml")
-    tmpl = open(path, "rt").read()
-    controller = tmpl.format(
-        name=f"{name}-controller",
-        image=spec_data.image,
-        label=f"{name}-controller",
-        replicas=1,
-        controller="locust-operator",
-    )
-    worker = tmpl.format(
-        name=f"{name}-worker",
-        image=spec_data.image,
-        label=f"{name}-worker",
-        replicas=spec_data.worker.replicas,
-        controller="locust-operator",
-    )
-
-    path = os.path.join(os.path.dirname(__file__), "templates", "service.yaml")
-    tmpl = open(path, "rt").read()
-    controller_service = tmpl.format(
-        name=f"{name}-controller-service",
-        label=f"{name}-controller",
-        controller="locust-operator",
-    )
-
     api = kubernetes.client.AppsV1Api()
-    core_api = kubernetes.client.CoreV1Api()
-
-    data = yaml.safe_load(controller)
-    data["spec"]["template"]["spec"]["containers"][0]["command"] = controller_cmd
-    kopf.adopt(data)
-    api.create_namespaced_deployment(namespace, data)
-    log.info("controller deployment created")
-
-    data = yaml.safe_load(controller_service)
-    kopf.adopt(data)
-    core_api.create_namespaced_service(namespace, data)
-    log.info("controller service created")
-
-    data = yaml.safe_load(worker)
-    data["spec"]["template"]["spec"]["containers"][0]["command"] = worker_cmd
-    kopf.adopt(data)
-    api.create_namespaced_deployment(namespace, data)
-    log.info("worker deployment created")
+    controller.create(name, namespace, spec_data, api)
+    worker.create(name, namespace, spec_data, api)
+    service.create(name, namespace)
 
 
 @kopf.on.resume("locust")
 @kopf.on.update("locusts")
-def patch_fn(spec, name, namespace, **kwargs):
-    # TODO: this needs to be smarter about reconcile the resources if there is a currently running test.
+def patch_fn(spec, name, namespace, **_):
     spec_data = Spec(**spec)
-    log.debug("run local")
-    controller_cmd = ["locust", "--master", "--locustfile", spec_data.locustfile]
-    if spec_data.controller.ui is False:
-        controller_cmd.append("--headless")
-
-    worker_cmd = [
-        "locust",
-        "--worker",
-        "--locustfile",
-        spec_data.locustfile,
-        "--master-host",
-        f"{name}-controller-service.{namespace}.svc.cluster.local",
-        "--master-port",
-        "5557",
-    ]
-
-    path = os.path.join(os.path.dirname(__file__), "templates", "deployment.yaml")
-    tmpl = open(path, "rt").read()
-    controller = tmpl.format(
-        name=f"{name}-controller",
-        image=spec_data.image,
-        label=f"{name}-controller",
-        replicas=1,
-        controller="locust-operator",
-    )
-    worker = tmpl.format(
-        name=f"{name}-worker",
-        image=spec_data.image,
-        label=f"{name}-worker",
-        replicas=spec_data.worker.replicas,
-        controller="locust-operator",
-    )
-
-    path = os.path.join(os.path.dirname(__file__), "templates", "service.yaml")
-    tmpl = open(path, "rt").read()
-    controller_service = tmpl.format(
-        name=f"{name}-controller-service",
-        label=f"{name}-controller",
-        controller="locust-operator",
-    )
 
     api = kubernetes.client.AppsV1Api()
+    controller_cr = controller.get(name, namespace, api)
+    if controller_cr is None:
+        controller.create(name, namespace, spec_data, api)
+    else:
+        controller.patch(name, namespace, spec_data, api)
+
+    worker_cr = worker.get(name, namespace, api)
+    if worker_cr is None:
+        worker.create(name, namespace, spec_data, api)
+    else:
+        worker.patch(name, namespace, spec_data, api)
+
     core_api = kubernetes.client.CoreV1Api()
-
-    data = yaml.safe_load(controller)
-    data["spec"]["template"]["spec"]["containers"][0]["command"] = controller_cmd
-    kopf.adopt(data)
-    api.patch_namespaced_deployment(f"{name}-controller", namespace, data)
-    log.info("controller deployment patched")
-
-    data = yaml.safe_load(controller_service)
-    kopf.adopt(data)
-    core_api.patch_namespaced_service(f"{name}-controller-service", namespace, data)
-    log.info("controller service patched")
-
-    data = yaml.safe_load(worker)
-    data["spec"]["template"]["spec"]["containers"][0]["command"] = worker_cmd
-    kopf.adopt(data)
-    api.patch_namespaced_deployment(f"{name}-worker", namespace, data)
-    log.info("worker deployment patched")
+    service_cr = service.get(name, namespace, core_api)
+    if service_cr is None:
+        service.create(name, namespace, core_api)
+    else:
+        service.patch(name, namespace, core_api)
 
 
 @kopf.on.update("service", labels={"controller": "locust-operator"}, field="spec")
-def revert_spec(old, name, namespace, **kwargs):
+def revert_spec(old, name, namespace, **_):
     core_api = kubernetes.client.CoreV1Api()
     core_api.patch_namespaced_service(name, namespace, old)
     log.info("service patched")
@@ -165,7 +67,7 @@ def revert_spec(old, name, namespace, **kwargs):
     old="locust-operator",
 )
 @kopf.on.field("deployment", param="deployment_app", field="metadata.labels.app")
-def relabel(old, param, name, namespace, **kwargs):
+def relabel(old, param, name, namespace, **_):
     patch = {"metadata": {"labels": {"controller": "locust-operator"}}}
     if param == "deployment_app":
         if old is None:
@@ -188,7 +90,7 @@ def relabel(old, param, name, namespace, **kwargs):
 @kopf.on.delete(
     "deployment", labels={"controller": "locust-operator"}, param="deployment"
 )
-def resource_delete(meta, name: str, namespace, param, **kwargs):
+def resource_delete(meta, name: str, namespace, param, **_):
     owner = next(
         filter(lambda x: x.get("kind") == "Locust", meta["ownerReferences"]), {}
     )
@@ -210,74 +112,24 @@ def resource_delete(meta, name: str, namespace, param, **kwargs):
         patch = {"metadata": {"finalizers": None}}
         core_api.patch_namespaced_service_with_http_info(name, namespace, patch)
         log.info("service finalizers patched")
-        path = os.path.join(os.path.dirname(__file__), "templates", "service.yaml")
-        tmpl = open(path, "rt").read()
-        controller_service = tmpl.format(
-            name=name,
-            label=f"{resource['metadata']['name']}-controller",
-            controller="locust-operator",
-        )
-        data = yaml.safe_load(controller_service)
-        kopf.adopt(data, resource)
-        core_api.create_namespaced_service_with_http_info(namespace, data)
-        log.info("service created")
+        log.info("recreating controller service")
+        service.create(owner.get("name"), namespace, adopter=resource)
 
     if param == "deployment":
+        spec_data = Spec(**resource["spec"])
         api = kubernetes.client.AppsV1Api()
         patch = {"metadata": {"finalizers": None}}
         api.patch_namespaced_deployment(name, namespace, patch)
-        spec_data = Spec(**resource["spec"])
-        path = os.path.join(os.path.dirname(__file__), "templates", "deployment.yaml")
-        tmpl = open(path, "rt").read()
-
         if name.endswith("-controller"):
-            controller_cmd = [
-                "locust",
-                "--master",
-                "--locustfile",
-                spec_data.locustfile,
-            ]
-            if spec_data.controller.ui is False:
-                controller_cmd.append("--headless")
-            controller = tmpl.format(
-                name=f"{name}-controller",
-                image=spec_data.image,
-                label=f"{name}-controller",
-                replicas=1,
-                controller="locust-operator",
+            log.info("recreating controller deployment")
+            controller.create(
+                owner.get("name"), namespace, spec_data, api, adopter=resource
             )
-            data = yaml.safe_load(controller)
-            data["spec"]["template"]["spec"]["containers"][0][
-                "command"
-            ] = controller_cmd
-            kopf.adopt(data, resource)
-            api.create_namespaced_deployment(namespace, data)
-            log.info("controller deployment recreated")
         elif name.endswith("-worker"):
-            worker_cmd = [
-                "locust",
-                "--worker",
-                "--locustfile",
-                spec_data.locustfile,
-                "--master-host",
-                f"{name}-controller-service.{namespace}.svc.cluster.local",
-                "--master-port",
-                "5557",
-            ]
-
-            worker = tmpl.format(
-                name=f"{name}-worker",
-                image=spec_data.image,
-                label=f"{name}-worker",
-                replicas=spec_data.worker.replicas,
-                controller="locust-operator",
+            worker.create(
+                owner.get("name"), namespace, spec_data, api, adopter=resource
             )
-
-            data = yaml.safe_load(worker)
-            data["spec"]["template"]["spec"]["containers"][0]["command"] = worker_cmd
-            kopf.adopt(data, resource)
-            api.create_namespaced_deployment(namespace, data)
-            log.info("worker deployment recreated")
+            log.info("recreating worker deployment")
 
 
 @kopf.on.update(
@@ -317,7 +169,7 @@ def is_running_in_cluster():
     Checks to see if the controller is in cluster.
     Useful for features that require on cluster resources such as service routes.
     """
-    # TODO should check to see if there is a more rebust way of checking this state.
+    # TODO should check to see if there is a more robust way of checking this state.
     if os.getenv("KUBERNETES_SERVICE_HOST"):
         return True
     return False
@@ -339,8 +191,8 @@ def locust_deployment(name, namespace, **_):
     if not is_running_in_cluster():
         log.debug("running controller locally, exit early.")
         return
-    service = f"{name}-controller-service.{namespace}.svc.cluster.local"
-    url = f"http://{service}:8089/stats/requests"
+    service_url = f"{name}-controller-service.{namespace}.svc.cluster.local"
+    url = f"http://{service_url}:8089/stats/requests"
 
     response = requests.get(url, timeout=10)
     if response.status_code == 200:
