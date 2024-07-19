@@ -7,12 +7,11 @@ spec:
   image: "localhost/locust-demo:latest"
   locustfile: "locustfile.py"
   host: "http://echoserver.default.svc.cluster.local"
+  replicas: 2
 #  autostart:
 #    headless: true
 #    start: true
 #    wait_for_workers: false
-  worker:
-    replicas: 2
 #---
 #apiVersion: boomatang.dev/v1
 #kind: Locust
@@ -22,10 +21,5 @@ spec:
 #spec:
 #  image: "localhost/locust-demo:latest"
 #  locustfile: "locustfile.py"
-#  controller:
-#    ui: true
-#    autostart:
-#      start: false
-#      wait_for_workers: false
-#  worker:
-#    replicas: 2
+#  host: "http://echoserver.default.svc.cluster.local"
+#  replicas: 2

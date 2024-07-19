@@ -20,15 +20,11 @@ class AutoStart(BaseModel):
     wait_for_workers: bool
 
 
-class Worker(BaseModel):
-    replicas: int = Field(ge=1)
-
-
 class Spec(BaseModel):
     image: str
     locustfile: str
     host: Optional[str]
-    worker: Worker
+    replicas: int = Field(ge=1)
     autostart: Optional[AutoStart] = None
 
 

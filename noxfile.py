@@ -81,6 +81,9 @@ def deploy(session: nox.Session):
     )
     session.run("kubectl", "apply", "-f", "./manifests/deployment.yaml", external=True)
     session.run("kubectl", "apply", "-f", "./manifests/rbac.yaml", external=True)
+    session.run(
+        "kubectl", "rollout", "restart", "deployments/locust-operator", external=True
+    )
 
 
 @nox.session

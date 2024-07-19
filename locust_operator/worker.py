@@ -69,7 +69,7 @@ def _setup(adopter, api, name, namespace, spec):
         name=f"{name}-worker",
         image=spec.image,
         label=f"{name}-worker",
-        replicas=spec.worker.replicas,
+        replicas=spec.replicas,
         controller="locust-operator",
     )
     data = yaml.safe_load(worker)

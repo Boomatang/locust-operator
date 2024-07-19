@@ -1,4 +1,6 @@
 # Locust Operator
+Currently, this project is a proof of concept to show how easy it can be to create an operator with python.
+
 
 ## Setup Example
 Setting up a kind cluster and adding the resources required to run the example local.
