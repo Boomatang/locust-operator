@@ -17,9 +17,9 @@ repos:
       - id: check-yaml
         args:
           - --allow-multiple-documents
-#      - id: no-commit-to-branch
-#        args:
-#          - --branch=main
+      - id: no-commit-to-branch
+        args:
+          - --branch=main
   - repo: https://github.com/pycqa/flake8
     rev: 7.1.0
     hooks:
